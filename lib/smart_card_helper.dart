@@ -1,17 +1,8 @@
 import 'package:flutter_pcsc/flutter_pcsc.dart';
+import 'package:pcsc_example/smart_card_constant.dart';
 
 import 'models/apdu_command_model.dart';
 import 'models/apdu_response.dart';
-
-class SmartCardConstant {
-  static List<int> selectCmd = [0x00, 0xA4, 0x04, 0x00];
-  static List<int> appletID = [0x11, 0x22, 0x33, 0x44, 0x55, 0x03];
-
-  static List<int> connect() => [...selectCmd, appletID.length, ...appletID];
-  static int appletCla = 0x00;
-
-  static int getFirstMessage = 0x00;
-}
 
 class SmartCardHelper {
   CardStruct? card;
@@ -38,9 +29,9 @@ class SmartCardHelper {
             await sendApdu(ApduCommand.connect(appletID: appletId));
         if (response != null) {
           var sw = response.sw;
-
           if (sw[0] != 0x90 || sw[1] != 0x00) {
             print('Card returned an error: ${hexDump(sw)}');
+            return false;
           }
           print('Connected');
           isSuccess = true;

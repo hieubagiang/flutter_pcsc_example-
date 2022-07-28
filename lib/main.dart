@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_pcsc/flutter_pcsc.dart';
+import 'package:pcsc_example/smart_card_constant.dart';
+import 'package:pcsc_example/smart_card_helper.dart';
+
+import 'models/apdu_command_model.dart';
 
 void main() {
   MyApp? myApp;
@@ -66,78 +69,22 @@ class Message {
 }
 
 class _MyAppBodyState extends State<MyAppBody> {
-  static List<int> selectCmd = [0x00, 0xA4, 0x04, 0x00];
-  static List<int> appletID = [0x11, 0x22, 0x33, 0x44, 0x55, 0x00];
-  static List<int> connect() => [...selectCmd, appletID.length, ...appletID];
-
-  static const List<int> getCardSerialNumberCommand = [
-    0xFF,
-    0xCA,
-    0x00,
-    0x00,
-    0x00
-  ];
   final ScrollController _scrollController = ScrollController();
 
   final List<Message> messages = [];
-
+  final SmartCardHelper _smartCardHelper = SmartCardHelper();
   @override
   void initState() {
     super.initState();
-    connectCard();
-  }
-
-  Future<void> connectCard() async {
-    int ctx = await Pcsc.establishContext(PcscSCope.user);
-    CardStruct? card;
-    try {
-      List<String> readers = await Pcsc.listReaders(ctx);
-
-      if (readers.isEmpty) {
-        messages.add(Message.error('Could not detect any reader'));
+    _smartCardHelper
+        .connectCard(SmartCardConstant.appletID)
+        .then((isConnectSuccess) {
+      if (isConnectSuccess) {
+        messages.add(Message.info('Connect card success'));
       } else {
-        String reader = readers[0];
-        setState(() {
-          messages.add(Message.info('Using reader: $reader'));
-        });
-
-        card = await Pcsc.cardConnect(
-            ctx, reader, PcscShare.shared, PcscProtocol.any);
-        var response = await Pcsc.transmit(card, connect());
-        var sw = response.sublist(response.length - 2);
-        var sn = response.sublist(0, response.length - 2);
-
-        if (sw[0] != 0x90 || sw[1] != 0x00) {
-          setState(() {
-            messages
-                .add(Message.error('Card returned an error: ${hexDump(sw)}'));
-          });
-        } else {
-          setState(() {
-            messages.add(Message.info('Connect card successfully'));
-          });
-        }
+        messages.add(Message.error('Connect card Failed'));
       }
-    } finally {
-      if (card != null) {
-        try {
-          await Pcsc.cardDisconnect(card.hCard, PcscDisposition.resetCard);
-        } on Exception catch (e) {
-          messages.add(Message.error(e.toString()));
-        }
-      }
-      try {
-        await Pcsc.releaseContext(ctx);
-      } on Exception catch (e) {
-        messages.add(Message.error(e.toString()));
-      }
-    }
-  }
-
-  static String hexDump(List<int> csn) {
-    return csn
-        .map((i) => i.toRadixString(16).padLeft(2, '0').toUpperCase())
-        .join(' ');
+    });
   }
 
   _scrollToBottom() {
@@ -147,30 +94,34 @@ class _MyAppBodyState extends State<MyAppBody> {
   @override
   Widget build(BuildContext context) {
     TextStyle errorStyle = const TextStyle(color: Colors.red);
-    WidgetsBinding.instance?.addPostFrameCallback((_) => _scrollToBottom());
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Expanded(
-          child: Column(children: [
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
-            child: ListView(
-                controller: _scrollController,
-                children: messages
-                    .map((e) => Text(e.content,
-                        style: e.type == MessageType.error ? errorStyle : null))
-                    .toList())),
-        Container(
-            margin: const EdgeInsets.all(10),
-            child: ElevatedButton(
-                onPressed: () async {
-                  await tryAgain();
-                },
-                child: const Text("Try again")))
-      ]))
-    ]);
-  }
-
-  tryAgain() async {
-    messages.clear();
-    await connectCard();
+            child: Column(children: [
+          Expanded(
+              child: ListView(
+                  controller: _scrollController,
+                  children: messages
+                      .map((e) => Text(e.content,
+                          style:
+                              e.type == MessageType.error ? errorStyle : null))
+                      .toList())),
+          Container(
+              margin: const EdgeInsets.all(10),
+              child: ElevatedButton(
+                  onPressed: () async {
+                    _smartCardHelper.sendApdu(ApduCommand(
+                      cla: SmartCardConstant.appletCla,
+                      ins: SmartCardConstant.getFirstMessage,
+                      p1: 0,
+                      p2: 0,
+                    ));
+                  },
+                  child: const Text("Get first Message")))
+        ]))
+      ]),
+    );
   }
 }
