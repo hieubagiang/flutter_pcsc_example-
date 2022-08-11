@@ -1,5 +1,4 @@
 import 'package:flutter_pcsc/flutter_pcsc.dart';
-import 'package:pcsc_example/smart_card_constant.dart';
 
 import 'models/apdu_command_model.dart';
 import 'models/apdu_response.dart';
@@ -39,9 +38,6 @@ class SmartCardHelper {
       }
     } catch (e) {
       print('Card returned an error: $e');
-      if (e.toString().contains('SCARD_W_REMOVED_CARD')) {
-        await connectCard(SmartCardConstant.appletID);
-      }
     }
     return isSuccess;
   }

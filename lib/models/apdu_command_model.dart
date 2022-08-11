@@ -40,4 +40,9 @@ class ApduCommand {
     }
     return command;
   }
+
+  @override
+  String toString() {
+    return 'ApduCommand{cla: $cla, ins: $ins, p1: $p1, p2: $p2, data: $data}';
+  }
 }
